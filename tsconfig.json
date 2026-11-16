@@ -1,8 +1,7 @@
 {
 	"extends": "$app/tsconfig",
 	"compilerOptions": {
-		"target": "es2025",
-		"verbatimModuleSyntax": true,
+		"target": "esnext",
 		"isolatedModules": true,
 		"strict": true,
 		"types": [
