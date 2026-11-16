@@ -1,7 +1,9 @@
 <script lang="ts">
 import { Select } from 'bits-ui';
-import { getMe } from '#lib/context.ts';
+import { getMe, type MessageItem } from '#lib/context.ts';
 import { characters } from '#lib/characters.ts';
+
+let { item = $bindable() }: { item: MessageItem } = $props();
 
 // `getMe()` returns the accessor stored in context; resolve it once during
 // initialisation, then call it inside `$derived` to track `me` changes.
@@ -23,30 +25,34 @@ const selections = $derived([
   })
 ]);
 
-let sender = $state(getCurrentMe().id);
-let lastMeId = getCurrentMe().id;
+// Items sent as "Me" follow the current player character; everything else
+// keeps the character the user picked.
+const senderId = $derived(item.me ? me.id : item.sender.id);
 
-$effect(() => {
-  if (sender === lastMeId) {
-    sender = me.id;
+function setSender(value: string) {
+  if (value === me.id) {
+    item.me = true;
+    return;
   }
-  lastMeId = me.id;
-});
 
-let override = $state('');
-let message = $state('');
+  const character = characters.find((char) => char.id === value);
+  if (character) {
+    item.me = false;
+    item.sender = character;
+  }
+}
 </script>
 
 <div class="flex flex-col gap-2">
   <div class="flex gap-2">
-    <Select.Root type="single" items={selections} allowDeselect={false} bind:value={sender}>
+    <Select.Root type="single" items={selections} allowDeselect={false} bind:value={() => senderId, (v) => setSender(v)}>
       <Select.Trigger class="flex-1 select inline-flex h-input items-center rounded-9px border border-border-input bg-gray-800 px-2.75 text-sm transition-colors select-none data-placeholder:text-foreground-alt/50" aria-label="Select sender">
         <div class="avatar">
           <div class="w-8 rounded-xl">
-            <img alt="Profile" src={selections.find(s => s.value === sender)?.thumbnail} />
+            <img alt="Profile" src={selections.find(s => s.value === senderId)?.thumbnail} />
           </div>
         </div>
-        {selections.find(s => s.value === sender)?.label}
+        {selections.find(s => s.value === senderId)?.label}
       </Select.Trigger>
       <Select.Portal>
         <Select.Content class="focus-override overflow-y-scroll z-50 h-96 max-h-(--bits-select-content-available-height) w-(--bits-select-anchor-width) min-w-(--bits-select-anchor-width) rounded-xl border border-gray-600 bg-gray-800 px-1 py-3 shadow-popover outline-hidden select-none">
@@ -66,7 +72,9 @@ let message = $state('');
           </Select.Content>
         </Select.Portal>
       </Select.Root>
-      <input type="text" placeholder="Name override" class="input flex-1" bind:value={override} />
+      {#if !item.me}
+        <input type="text" placeholder="Name override" class="input flex-1" bind:value={item.override} />
+      {/if}
   </div>
-  <input type="text" placeholder="Message" class="input w-full" bind:value={message} />
+  <input type="text" placeholder="Message" class="input w-full" bind:value={item.text} />
 </div>

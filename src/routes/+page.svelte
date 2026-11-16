@@ -2,7 +2,7 @@
 import { Select } from 'bits-ui';
 import { type Character, characters } from '#lib/characters.ts';
 import MessageItem from '#lib/components/MessageItem.svelte';
-import { setMe } from '#lib/context.ts';
+import { type MessageItem as MessageItemData, setMessages, setMe } from '#lib/context.ts';
 
 const selections = characters.map(c => {
   return {
@@ -13,8 +13,19 @@ const selections = characters.map(c => {
 })
 
 let me = $state<Character>(characters[0]);
+let messages = $state<MessageItemData[]>([]);
 
+// Pass a getter so MessageItem always sees the current character, even after
+// the sender selection reassigns `me`.
 setMe(() => me);
+
+// The array itself is reactive state; entries are mutated in place by the
+// MessageItem components, so every context consumer sees the same list.
+setMessages(messages);
+
+function addMessage() {
+  messages.push({ me: true, sender: me, override: '', text: '' });
+}
 </script>
 
 <div class="w-full h-dvh flex">
@@ -53,7 +64,10 @@ setMe(() => me);
             </Select.Content>
           </Select.Portal>
         </Select.Root>
-      <button class="btn">+</button>
+      {#each messages as message, i (message)}
+        <MessageItem bind:item={messages[i]} />
+      {/each}
+      <button class="btn" aria-label="Add message" onclick={addMessage}>+</button>
     </div>
   </div>
 </div>
