@@ -1,0 +1,18 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"target": "es2025",
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"strict": true,
+		"types": [
+			"$app/types",
+			"node"
+		]
+	},
+	"include": [
+		"src",
+		"vite.config.ts",
+		"eslint.config.js"
+	]
+}
