@@ -13,7 +13,8 @@ const selections = characters.map(c => {
 })
 
 let me = $state<Character>(characters[0]);
-setMe(me);
+
+setMe(() => me);
 </script>
 
 <div class="w-full h-dvh flex">
@@ -52,7 +53,7 @@ setMe(me);
             </Select.Content>
           </Select.Portal>
         </Select.Root>
-      <MessageItem />
+      <button class="btn">+</button>
     </div>
   </div>
 </div>

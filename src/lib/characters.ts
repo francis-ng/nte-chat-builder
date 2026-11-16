@@ -50,7 +50,7 @@ export const characters: Character[] = [
   },
   {
     id: 'adler',
-    name: 'adler',
+    name: 'Adler',
     image: adlerProf
   },
   {

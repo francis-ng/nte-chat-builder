@@ -3,23 +3,36 @@ import { Select } from 'bits-ui';
 import { getMe } from '#lib/context.ts';
 import { characters } from '#lib/characters.ts';
 
-const me = getMe();
-const selections = [
+// `getMe()` returns the accessor stored in context; resolve it once during
+// initialisation, then call it inside `$derived` to track `me` changes.
+const getCurrentMe = getMe();
+const me = $derived(getCurrentMe());
+
+const selections = $derived([
   {
     value: me.id,
     label: `Me [${me.name}]`,
     thumbnail: me.image
   },
-  ...characters.slice(2).map((char) => {
+  ...characters.slice(2).filter((char) => char.id !== me.id).map((char) => {
     return {
       value: char.id,
       label: char.name,
       thumbnail: char.image
     }
   })
-];
+]);
 
-let sender = $state(me.id);
+let sender = $state(getCurrentMe().id);
+let lastMeId = getCurrentMe().id;
+
+$effect(() => {
+  if (sender === lastMeId) {
+    sender = me.id;
+  }
+  lastMeId = me.id;
+});
+
 let override = $state('');
 let message = $state('');
 </script>
