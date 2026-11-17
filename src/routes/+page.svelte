@@ -4,6 +4,7 @@ import { Select } from 'bits-ui';
 import { type Character, characters } from '#lib/characters.ts';
 import MessageItem from '#lib/components/MessageItem.svelte';
 import { type MessageItem as MessageItemData, setMessages, setMe } from '#lib/context.ts';
+  import ChatPreview from '#lib/components/ChatPreview.svelte';
 
 const selections = characters
   .toSorted((a, b) => {
@@ -173,9 +174,13 @@ function endDrag(event?: Event) {
 </script>
 
 <div class="w-full h-dvh flex">
-  <div class="flex-1">
-    <div class="flex flex-col gap-2 p-4">
-
+  <div class="flex-1 flex flex-col p-4 gap-4">
+    <div class="border border-dashed border-slate-500">
+      <ChatPreview />
+    </div>
+    <div class="flex gap-2">
+      <button class="btn flex-1" aria-label="Download image">Download image</button>
+      <button class="btn flex-1" aria-label="Copy image">Copy image</button>
     </div>
   </div>
   <div class="flex-2">
