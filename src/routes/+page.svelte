@@ -1,10 +1,33 @@
 <script lang="ts">
 import { flip } from 'svelte/animate';
-import { Select } from 'bits-ui';
+import { Select, Slider } from 'bits-ui';
 import { type Character, characters } from '#lib/characters.ts';
 import MessageItem from '#lib/components/MessageItem.svelte';
 import { type MessageItem as MessageItemData, setMessages, setMe } from '#lib/context.ts';
-  import ChatPreview from '#lib/components/ChatPreview.svelte';
+import ChatPreview from '#lib/components/ChatPreview.svelte';
+import { type OutputDimensions } from '#lib/drawing.ts';
+
+let outputWidth = $state(960);
+const MIN_OUTPUT_WIDTH = 320;
+const MAX_OUTPUT_WIDTH = 1920;
+
+function clampOutputWidth(value: number | null | undefined): number {
+  if (value === null || value === undefined || !Number.isFinite(value)) return MIN_OUTPUT_WIDTH;
+  return Math.min(MAX_OUTPUT_WIDTH, Math.max(MIN_OUTPUT_WIDTH, Math.round(value)));
+}
+
+let previewSize = $state({ width: 0, height: 0 });
+const normalizedOutputWidth = $derived(clampOutputWidth(outputWidth));
+const outputDimensions: OutputDimensions = $derived({
+  width: normalizedOutputWidth,
+  height: previewSize.width > 0
+    ? Math.round((previewSize.height * normalizedOutputWidth) / previewSize.width)
+    : 0
+});
+
+// Exported by ChatPreview so downloads and clipboard copies use the exact
+// composition shown in the preview, re-rendered at the chosen dimensions.
+let chatPreview: ReturnType<typeof ChatPreview> | undefined;
 
 const selections = characters
   .toSorted((a, b) => {
@@ -31,6 +54,40 @@ setMessages(messages);
 
 function addMessage() {
   messages.push({ me: true, sender: me, override: '', text: '' });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  const { promise, resolve, reject } = Promise.withResolvers<Blob>();
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob);
+    else reject(new Error('Could not encode the preview as a PNG.'));
+  }, 'image/png');
+  return promise;
+}
+
+async function renderOutput(): Promise<Blob> {
+  if (!chatPreview || outputDimensions.height <= 0) {
+    throw new Error('The preview is not ready yet.');
+  }
+  const canvas = await chatPreview.createImage(outputDimensions);
+  return canvasToBlob(canvas);
+}
+
+async function downloadImage() {
+  const blob = await renderOutput();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `nte-chat-${outputDimensions.width}px.png`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copyImage() {
+  const blob = await renderOutput();
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
 }
 
 type DragState = {
@@ -176,16 +233,42 @@ function endDrag(event?: Event) {
 <div class="w-full h-dvh flex">
   <div class="flex-1 flex flex-col p-4 gap-4">
     <div class="border border-dashed border-slate-500">
-      <ChatPreview />
+      <ChatPreview bind:this={chatPreview} bind:previewSize />
     </div>
+    <p class="text-center text-sm text-slate-400 tabular-nums" aria-live="polite">
+      Output resolution: {outputDimensions.width} × {outputDimensions.height} px
+    </p>
     <div class="flex gap-2">
-      <button class="btn flex-1" aria-label="Download image">Download image</button>
-      <button class="btn flex-1" aria-label="Copy image">Copy image</button>
+      <button class="btn flex-1" aria-label="Download image" onclick={downloadImage}>Download image</button>
+      <button class="btn flex-1" aria-label="Copy image" onclick={copyImage}>Copy image</button>
     </div>
   </div>
   <div class="flex-2">
     <div class="flex flex-col gap-2 p-4">
-      <h1>NTE Message Generator</h1>
+      <h1 class="font-bold text-2xl">NTE Message Generator</h1>
+      <div class="flex gap-2 place-items-center">
+        <span class="block w-28">Output width</span>
+        <Slider.Root type="single" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} value={normalizedOutputWidth} onValueChange={(value) => outputWidth = clampOutputWidth(value)} class="relative flex w-full touch-none items-center select-none my-6">
+          <span class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-dark-10">
+            <Slider.Range class="absolute h-full bg-foreground" />
+          </span>
+          <Slider.Thumb
+            index={0}
+            aria-label="Output width"
+            class="block size-6.25 cursor-pointer rounded-full border border-border-input bg-background shadow-sm transition-colors hover:border-dark-40 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-active:scale-[0.98] data-active:border-dark-40 dark:bg-foreground dark:shadow-card"
+          />
+        </Slider.Root>
+        <input
+          type="number"
+          class="input w-20"
+          min={MIN_OUTPUT_WIDTH}
+          max={MAX_OUTPUT_WIDTH}
+          step={10}
+          aria-label="Output width in pixels"
+          bind:value={outputWidth}
+          onchange={() => outputWidth = clampOutputWidth(outputWidth)}
+        />
+      </div>
       <Select.Root type="single" items={selections} allowDeselect={false} bind:value={() => me.id, (v) => me = characters.find(c => c.id === v) as Character}>
         <Select.Trigger class="select w-full inline-flex h-10 items-center rounded-9px border border-border-input bg-gray-800 px-2.75 text-sm transition-colors select-none data-placeholder:text-foreground-alt/50" aria-label="Select sender">
           <div class="avatar">

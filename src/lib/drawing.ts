@@ -1,6 +1,11 @@
 import { type Character } from '#lib/characters.ts';
 import { type MessageItem } from '#lib/context.ts';
 
+export type OutputDimensions = {
+  width: number;
+  height: number;
+};
+
 /** Layout constants, all in CSS pixels. */
 const SIDE = 26;
 const TOP = 28;
@@ -26,36 +31,59 @@ const NAME_FONT = `600 ${NAME_SIZE}px "Segoe UI Variable Text", "Segoe UI", syst
 type ImageEntry = {
   image: HTMLImageElement;
   state: 'loading' | 'loaded' | 'error';
+  promise: Promise<HTMLImageElement | null>;
+  waiters: Set<() => void>;
 };
 
 const imageCache = new Map<string, ImageEntry>();
 
+function createImageEntry(src: string): ImageEntry {
+  const image = new Image();
+  const { promise, resolve } = Promise.withResolvers<HTMLImageElement | null>();
+
+  const entry: ImageEntry = {
+    image,
+    state: 'loading',
+    promise,
+    waiters: new Set()
+  };
+
+  const finish = (state: 'loaded' | 'error') => {
+    if (entry.state !== 'loading') return;
+    entry.state = state;
+    resolve(state === 'loaded' ? image : null);
+    for (const waiter of entry.waiters) waiter();
+    entry.waiters.clear();
+  };
+
+  image.onload = () => finish('loaded');
+  image.onerror = () => finish('error');
+  image.src = src;
+
+  // Cached images can already be complete before the handlers are attached.
+  if (image.complete && image.naturalWidth > 0) finish('loaded');
+
+  imageCache.set(src, entry);
+  return entry;
+}
+
+function ensureImage(src: string): ImageEntry | null {
+  if (!src || typeof Image === 'undefined') return null;
+  return imageCache.get(src) ?? createImageEntry(src);
+}
+
 function getImage(src: string, onLoad: () => void): HTMLImageElement | null {
-  if (!src) return null;
+  const entry = ensureImage(src);
+  if (entry === null) return null;
 
-  let entry = imageCache.get(src);
-  if (!entry) {
-    if (typeof Image === 'undefined') return null;
+  if (entry.state === 'loaded') return entry.image;
+  if (entry.state === 'loading') entry.waiters.add(onLoad);
+  return null;
+}
 
-    const image = new Image();
-    entry = { image, state: 'loading' };
-    imageCache.set(src, entry);
-
-    image.onload = () => {
-      entry!.state = 'loaded';
-      onLoad();
-    };
-    image.onerror = () => {
-      entry!.state = 'error';
-      onLoad();
-    };
-    image.src = src;
-
-    // Cached images can already be complete before the handlers are attached.
-    if (image.complete && image.naturalWidth > 0) entry.state = 'loaded';
-  }
-
-  return entry.state === 'loaded' ? entry.image : null;
+async function preloadImage(src: string): Promise<void> {
+  const entry = ensureImage(src);
+  if (entry) await entry.promise;
 }
 
 function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -299,6 +327,37 @@ function drawEmptyState(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.fillText('Add a message to see the preview', width / 2, height / 2 + 14);
 }
 
+function getSceneHeight(rows: Row[]): number {
+  if (rows.length === 0) return EMPTY_HEIGHT;
+  const last = rows[rows.length - 1];
+  return last.bubbleY + Math.max(AVATAR, last.bubbleH) + BOTTOM;
+}
+
+function drawScene(
+  ctx: CanvasRenderingContext2D,
+  rows: Row[],
+  width: number,
+  height: number,
+  onAssetLoad: () => void
+) {
+  const background = ctx.createLinearGradient(0, 0, width, height);
+  background.addColorStop(0, '#151b26');
+  background.addColorStop(0.55, '#10141d');
+  background.addColorStop(1, '#0a0d13');
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+
+  if (rows.length === 0) {
+    drawEmptyState(ctx, width, height);
+    return;
+  }
+
+  for (const row of rows) {
+    drawBubble(ctx, row);
+    drawAvatar(ctx, row, onAssetLoad);
+  }
+}
+
 export function renderPreview(
   canvas: HTMLCanvasElement | null,
   ctx: CanvasRenderingContext2D | null,
@@ -309,14 +368,8 @@ export function renderPreview(
   if (canvas === null || ctx === null) return;
 
   const cssW = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 640));
-
   const rows = layoutRows(ctx, messages, me, cssW);
-  let contentHeight = EMPTY_HEIGHT;
-  if (rows.length > 0) {
-    const last = rows[rows.length - 1];
-    contentHeight = last.bubbleY + Math.max(AVATAR, last.bubbleH) + BOTTOM;
-  }
-  const cssH = Math.max(1, Math.round(contentHeight));
+  const cssH = Math.max(1, Math.round(getSceneHeight(rows)));
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(cssW * dpr);
@@ -325,21 +378,43 @@ export function renderPreview(
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
+  drawScene(ctx, rows, cssW, cssH, onAssetLoad);
+}
 
-  const background = ctx.createLinearGradient(0, 0, cssW, cssH);
-  background.addColorStop(0, '#151b26');
-  background.addColorStop(0.55, '#10141d');
-  background.addColorStop(1, '#0a0d13');
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, cssW, cssH);
+/**
+ * Render the chat at precomputed output dimensions without losing resolution.
+ * `layoutWidth` is the CSS width the preview is laid out at; the final image
+ * scales that composition uniformly to the supplied dimensions.
+ */
+export async function renderChatImage(
+  messages: MessageItem[],
+  me: Character,
+  layoutWidth: number,
+  dimensions: OutputDimensions
+): Promise<HTMLCanvasElement> {
+  const baseWidth = Math.max(1, Math.round(layoutWidth));
+  const targetWidth = Math.max(1, Math.round(dimensions.width));
+  const targetHeight = Math.max(1, Math.round(dimensions.height));
 
-  if (rows.length === 0) {
-    drawEmptyState(ctx, cssW, cssH);
-    return;
+  const sources = new Set<string>();
+  for (const message of messages) {
+    sources.add((message.me ? me : message.sender).image);
   }
+  await Promise.all(Array.from(sources, (src) => preloadImage(src)));
+  if (document.fonts) await document.fonts.ready;
 
-  for (const row of rows) {
-    drawBubble(ctx, row);
-    drawAvatar(ctx, row, onAssetLoad);
-  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) throw new Error('Could not create a 2D canvas context');
+
+  const rows = layoutRows(ctx, messages, me, baseWidth);
+  const scale = targetWidth / baseWidth;
+  const sceneHeight = targetHeight / scale;
+
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  drawScene(ctx, rows, baseWidth, sceneHeight, () => {});
+  return canvas;
 }

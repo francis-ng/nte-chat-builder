@@ -1,7 +1,16 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { getMessages, getMe } from '#lib/context.ts';
-import { renderPreview } from '#lib/drawing.ts';
+import { type OutputDimensions, renderChatImage, renderPreview } from '#lib/drawing.ts';
+
+type PreviewSize = {
+  width: number;
+  height: number;
+};
+
+let {
+  previewSize = $bindable({ width: 0, height: 0 })
+}: { previewSize: PreviewSize } = $props();
 
 const messages = getMessages();
 
@@ -16,6 +25,9 @@ let frame = 0;
 
 function render() {
   renderPreview(canvas, ctx, messages, me, requestRender);
+  if (canvas && (previewSize.width !== canvas.clientWidth || previewSize.height !== canvas.clientHeight)) {
+    previewSize = { width: canvas.clientWidth, height: canvas.clientHeight };
+  }
 }
 
 function requestRender() {
@@ -24,6 +36,12 @@ function requestRender() {
     frame = 0;
     render();
   });
+}
+
+/** Render the preview's composition at precomputed output dimensions. */
+export async function createImage(dimensions: OutputDimensions): Promise<HTMLCanvasElement> {
+  const layoutWidth = canvas?.clientWidth || canvas?.parentElement?.clientWidth || 480;
+  return renderChatImage(messages, me, layoutWidth, dimensions);
 }
 
 $effect(() => {
