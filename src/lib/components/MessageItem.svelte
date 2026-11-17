@@ -1,9 +1,11 @@
 <script lang="ts">
 import { Select } from 'bits-ui';
+import Trash from '@lucide/svelte/icons/trash';
+import Copy from '@lucide/svelte/icons/copy';
 import { getMe, type MessageItem } from '#lib/context.ts';
 import { characters } from '#lib/characters.ts';
 
-let { item = $bindable() }: { item: MessageItem } = $props();
+let { item = $bindable(), deleteSelf, copySelf }: { item: MessageItem, deleteSelf: () => void, copySelf: () => void } = $props();
 
 // `getMe()` returns the accessor stored in context; resolve it once during
 // initialisation, then call it inside `$derived` to track `me` changes.
@@ -16,7 +18,12 @@ const selections = $derived([
     label: `Me [${me.name}]`,
     thumbnail: me.image
   },
-  ...characters.slice(2).filter((char) => char.id !== me.id).map((char) => {
+  ...characters
+    .filter(c => c.id !== me.id)
+    .toSorted((a, b) => {
+      return a.name > b.name ? 1 : a.name < b.name ? -1 : 0
+    })
+    .filter((char) => char.id !== me.id).map((char) => {
     return {
       value: char.id,
       label: char.name,
@@ -75,6 +82,22 @@ function setSender(value: string) {
       {#if !item.me}
         <input type="text" placeholder="Name override" class="input flex-1" bind:value={item.override} />
       {/if}
+      <button type="button"
+        class="btn btn-ghost btn-square"
+        aria-label="Delete"
+        onclick={deleteSelf}
+      >
+        <Trash size={20} />
+      </button>
   </div>
-  <input type="text" placeholder="Message" class="input w-full" bind:value={item.text} />
+  <div class="flex gap-2">
+    <input type="text" placeholder="Message" class="input w-full" bind:value={item.text} />
+    <button type="button"
+      class="btn btn-ghost btn-square"
+      aria-label="Copy"
+      onclick={copySelf}
+    >
+      <Copy size={20} />
+    </button>
+  </div>
 </div>

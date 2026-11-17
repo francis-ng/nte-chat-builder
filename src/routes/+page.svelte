@@ -3,7 +3,7 @@ import { flip } from 'svelte/animate';
 import { Select, Slider } from 'bits-ui';
 import { type Character, characters } from '#lib/characters.ts';
 import MessageItem from '#lib/components/MessageItem.svelte';
-import { type MessageItem as MessageItemData, setMessages, setMe } from '#lib/context.ts';
+import { type MessageItem as MessageItemData, setMessages, setMe, initialMessages } from '#lib/context.ts';
 import ChatPreview from '#lib/components/ChatPreview.svelte';
 import { type OutputDimensions } from '#lib/drawing.ts';
 
@@ -42,7 +42,7 @@ const selections = characters
 })
 
 let me = $state<Character>(characters[0]);
-let messages = $state<MessageItemData[]>([]);
+let messages = $state<MessageItemData[]>(initialMessages);
 
 // Pass a getter so MessageItem always sees the current character, even after
 // the sender selection reassigns `me`.
@@ -54,6 +54,12 @@ setMessages(messages);
 
 function addMessage() {
   messages.push({ me: true, sender: me, override: '', text: '' });
+}
+function deleteMessage(index: number) {
+  messages.splice(index, 1);
+}
+function insertMessage(index: number, item: MessageItemData) {
+  messages.splice(index, 0, item);
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -239,8 +245,8 @@ function endDrag(event?: Event) {
       Output resolution: {outputDimensions.width} × {outputDimensions.height} px
     </p>
     <div class="flex gap-2">
-      <button class="btn flex-1" aria-label="Download image" onclick={downloadImage}>Download image</button>
-      <button class="btn flex-1" aria-label="Copy image" onclick={copyImage}>Copy image</button>
+      <button class="btn btn-neutral flex-1" aria-label="Download image" onclick={downloadImage}>Download image</button>
+      <button class="btn btn-neutral flex-1" aria-label="Copy image" onclick={copyImage}>Copy image</button>
     </div>
   </div>
   <div class="flex-2">
@@ -248,7 +254,8 @@ function endDrag(event?: Event) {
       <h1 class="font-bold text-2xl">NTE Message Generator</h1>
       <div class="flex gap-2 place-items-center">
         <span class="block w-28">Output width</span>
-        <Slider.Root type="single" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} value={normalizedOutputWidth} onValueChange={(value) => outputWidth = clampOutputWidth(value)} class="relative flex w-full touch-none items-center select-none my-6">
+        <input type="range" class="range text-blue-500 w-full" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} bind:value={() => outputWidth, (v) => outputWidth = clampOutputWidth(v)} />
+        <!-- <Slider.Root type="single" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} value={normalizedOutputWidth} onValueChange={(value) => outputWidth = clampOutputWidth(value)} class="relative flex w-full touch-none items-center select-none my-6">
           <span class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-dark-10">
             <Slider.Range class="absolute h-full bg-foreground" />
           </span>
@@ -257,7 +264,7 @@ function endDrag(event?: Event) {
             aria-label="Output width"
             class="block size-6.25 cursor-pointer rounded-full border border-border-input bg-background shadow-sm transition-colors hover:border-dark-40 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-active:scale-[0.98] data-active:border-dark-40 dark:bg-foreground dark:shadow-card"
           />
-        </Slider.Root>
+        </Slider.Root> -->
         <input
           type="number"
           class="input w-20"
@@ -269,21 +276,23 @@ function endDrag(event?: Event) {
           onchange={() => outputWidth = clampOutputWidth(outputWidth)}
         />
       </div>
-      <Select.Root type="single" items={selections} allowDeselect={false} bind:value={() => me.id, (v) => me = characters.find(c => c.id === v) as Character}>
-        <Select.Trigger class="select w-full inline-flex h-10 items-center rounded-9px border border-border-input bg-gray-800 px-2.75 text-sm transition-colors select-none data-placeholder:text-foreground-alt/50" aria-label="Select sender">
-          <div class="avatar">
-            <div class="w-8 rounded-xl">
-              <img alt="Profile" src={selections.find(s => s.value === me.id)?.thumbnail} />
+      <div class="flex gap-2 place-items-center">
+        <span class="block w-10">I am</span>
+        <Select.Root type="single" items={selections} allowDeselect={false} bind:value={() => me.id, (v) => me = characters.find(c => c.id === v) as Character}>
+          <Select.Trigger class="select w-full inline-flex h-10 items-center rounded-9px border border-border-input bg-gray-800 px-2.75 text-sm transition-colors select-none data-placeholder:text-foreground-alt/50" aria-label="Select sender">
+            <div class="avatar">
+              <div class="w-8 rounded-xl">
+                <img alt="Profile" src={selections.find(s => s.value === me.id)?.thumbnail} />
+              </div>
             </div>
-          </div>
-          {selections.find(s => s.value === me.id)?.label}
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content class="focus-override overflow-y-scroll z-50 h-96 max-h-(--bits-select-content-available-height) w-(--bits-select-anchor-width) min-w-(--bits-select-anchor-width) rounded-xl border border-gray-600 bg-gray-800 px-1 py-3 shadow-popover outline-hidden select-none">
-            {#each selections as selection (selection.value)}
-            <Select.Item class="flex gap-4 h-12 w-full items-center rounded-full py-3 pr-1.5 pl-5 text-sm capitalize outline-hidden select-none data-disabled:opacity-50 data-highlighted:bg-gray-600"
-                value={selection.value}
-                label={selection.label}
+            {selections.find(s => s.value === me.id)?.label}
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Content class="focus-override overflow-y-scroll z-50 h-96 max-h-(--bits-select-content-available-height) w-(--bits-select-anchor-width) min-w-(--bits-select-anchor-width) rounded-xl border border-gray-600 bg-gray-800 px-1 py-3 shadow-popover outline-hidden select-none">
+              {#each selections as selection (selection.value)}
+              <Select.Item class="flex gap-4 h-12 w-full items-center rounded-full py-3 pr-1.5 pl-5 text-sm capitalize outline-hidden select-none data-disabled:opacity-50 data-highlighted:bg-gray-600"
+                  value={selection.value}
+                  label={selection.label}
               >
                 <div class="avatar">
                   <div class="w-8 rounded-xl">
@@ -296,8 +305,9 @@ function endDrag(event?: Event) {
             </Select.Content>
           </Select.Portal>
         </Select.Root>
+      </div>
       <div class="relative flex flex-col gap-2" bind:this={listEl}>
-        {#each messages as message, i (message)}
+        {#each messages as message, i (i)}
           <div
             data-message-row
             class="flex items-start gap-2 place-items-center"
@@ -320,12 +330,12 @@ function endDrag(event?: Event) {
               </svg>
             </button>
             <div class="min-w-0 flex-1">
-              <MessageItem bind:item={messages[i]} />
+              <MessageItem bind:item={messages[i]} deleteSelf={() => deleteMessage(i)} copySelf={() => insertMessage(i, message)} />
             </div>
           </div>
         {/each}
       </div>
-      <button class="btn" aria-label="Add message" onclick={addMessage}>+</button>
+      <button class="btn btn-neutral" aria-label="Add message" onclick={addMessage}>+</button>
     </div>
   </div>
 </div>
