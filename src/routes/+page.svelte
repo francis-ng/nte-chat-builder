@@ -54,7 +54,7 @@ function deleteMessage(index: number) {
   messages.splice(index, 1);
 }
 function insertMessage(index: number, item: MessageItemData) {
-  messages.splice(index, 0, item);
+  messages.splice(index, 0, {...item});
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
