@@ -303,11 +303,13 @@ function drawBubble(ctx: CanvasRenderingContext2D, row: Row) {
 
   ctx.font = NAME_FONT;
   ctx.fillStyle = me ? 'rgba(255, 255, 255, 0.74)' : 'rgba(168, 186, 210, 0.92)';
-  ctx.fillText(row.name, bubbleX + BUBBLE_PAD_X, bubbleY + BUBBLE_PAD_Y);
+  if (!me) {
+    ctx.fillText(row.name, bubbleX + BUBBLE_PAD_X, bubbleY + BUBBLE_PAD_Y);
+  }
 
   ctx.font = TEXT_FONT;
   ctx.fillStyle = me ? '#ffffff' : '#e8eef9';
-  let textY = bubbleY + BUBBLE_PAD_Y + NAME_LINE + NAME_GAP;
+  let textY = me ? bubbleY + BUBBLE_PAD_Y + NAME_LINE - NAME_GAP : bubbleY + BUBBLE_PAD_Y + NAME_LINE + NAME_GAP;
   for (const line of row.lines) {
     if (line) ctx.fillText(line, bubbleX + BUBBLE_PAD_X, textY);
     textY += TEXT_LINE;
