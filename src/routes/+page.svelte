@@ -1,6 +1,6 @@
 <script lang="ts">
 import { flip } from 'svelte/animate';
-import { Select, Slider } from 'bits-ui';
+import { Select } from 'bits-ui';
 import { type Character, characters } from '#lib/characters.ts';
 import MessageItem from '#lib/components/MessageItem.svelte';
 import { type MessageItem as MessageItemData, setMessages, setMe, initialMessages } from '#lib/context.ts';
@@ -44,12 +44,7 @@ const selections = characters
 let me = $state<Character>(characters[0]);
 let messages = $state<MessageItemData[]>(initialMessages);
 
-// Pass a getter so MessageItem always sees the current character, even after
-// the sender selection reassigns `me`.
 setMe(() => me);
-
-// The array itself is reactive state; entries are mutated in place by the
-// MessageItem components, so every context consumer sees the same list.
 setMessages(messages);
 
 function addMessage() {
@@ -225,8 +220,6 @@ function endDrag(event?: Event) {
   window.removeEventListener('keydown', onKeyDown);
   document.body.classList.remove('select-none');
 
-  // Swallow the click that follows a drop so it doesn't activate whatever
-  // control happened to be under the pointer.
   if (event?.type === 'pointerup') {
     window.addEventListener('click', suppressClick, { capture: true, once: true });
   }
@@ -255,16 +248,6 @@ function endDrag(event?: Event) {
       <div class="flex gap-2 place-items-center">
         <span class="block w-28">Output width</span>
         <input type="range" class="range text-blue-500 w-full" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} bind:value={() => outputWidth, (v) => outputWidth = clampOutputWidth(v)} />
-        <!-- <Slider.Root type="single" min={MIN_OUTPUT_WIDTH} max={MAX_OUTPUT_WIDTH} step={10} value={normalizedOutputWidth} onValueChange={(value) => outputWidth = clampOutputWidth(value)} class="relative flex w-full touch-none items-center select-none my-6">
-          <span class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-dark-10">
-            <Slider.Range class="absolute h-full bg-foreground" />
-          </span>
-          <Slider.Thumb
-            index={0}
-            aria-label="Output width"
-            class="block size-6.25 cursor-pointer rounded-full border border-border-input bg-background shadow-sm transition-colors hover:border-dark-40 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-active:scale-[0.98] data-active:border-dark-40 dark:bg-foreground dark:shadow-card"
-          />
-        </Slider.Root> -->
         <input
           type="number"
           class="input w-20"

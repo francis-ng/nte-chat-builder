@@ -7,8 +7,6 @@ import { characters } from '#lib/characters.ts';
 
 let { item = $bindable(), deleteSelf, copySelf }: { item: MessageItem, deleteSelf: () => void, copySelf: () => void } = $props();
 
-// `getMe()` returns the accessor stored in context; resolve it once during
-// initialisation, then call it inside `$derived` to track `me` changes.
 const getCurrentMe = getMe();
 const me = $derived(getCurrentMe());
 
@@ -32,8 +30,6 @@ const selections = $derived([
   })
 ]);
 
-// Items sent as "Me" follow the current player character; everything else
-// keeps the character the user picked.
 const senderId = $derived(item.me ? me.id : item.sender.id);
 
 function setSender(value: string) {

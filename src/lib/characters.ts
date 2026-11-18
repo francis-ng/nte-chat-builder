@@ -1,5 +1,5 @@
-import fzeroProf from '#lib/assets/characters/placeholder.webp';
-import mzeroProf from '#lib/assets/characters/placeholder.webp';
+import fzeroProf from '#lib/assets/characters/fzero.webp';
+import mzeroProf from '#lib/assets/characters/mzero.webp';
 import adlerProf from '#lib/assets/characters/adler.webp';
 import daffProf from '#lib/assets/characters/daff.webp';
 import edgarProf from '#lib/assets/characters/edgar.webp';
@@ -20,15 +20,15 @@ import chaosProf from '#lib/assets/characters/chaos.webp';
 import elymsProf from '#lib/assets/characters/elyms.webp';
 import exeProf from '#lib/assets/characters/exe.webp';
 import linkoProf from '#lib/assets/characters/linko.webp';
-import nitsaProf from '#lib/assets/characters/placeholder.webp';
+import nitsaProf from '#lib/assets/characters/nitsa.webp';
 import chizProf from '#lib/assets/characters/chiz.webp';
-import klingsnaProf from '#lib/assets/characters/placeholder.webp';
-import sinclairProf from '#lib/assets/characters/placeholder.webp';
+import klingsnaProf from '#lib/assets/characters/klingsna.webp';
+import sinclairProf from '#lib/assets/characters/sinclair.webp';
 import akaneProf from '#lib/assets/characters/akane.webp';
 import aureliaProf from '#lib/assets/characters/aurelia.webp';
 import blackbirdProf from '#lib/assets/characters/blackbird.webp';
 import zankouProf from '#lib/assets/characters/zankou.webp';
-import ellieProf from '#lib/assets/characters/placeholder.webp';
+import ellieProf from '#lib/assets/characters/ellie.webp';
 
 export type Character = {
   id: string,
